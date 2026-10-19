@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulador de Biomoléculas</title>
+<style>
+:root{--bg:#eef3f1;--card:#fff;--ink:#12302f;--mut:#4f6866;--line:#c9d8d4;--acc:#0b7a75;--amb:#e0a100;--wat:#d9534f;--ok:#2e8b57;--bad:#c0392b}
+@media(prefers-color-scheme:dark){:root{--bg:#0d1b1a;--card:#14292a;--ink:#e6f1ee;--mut:#9db8b3;--line:#2b4745;--acc:#3cc1b8;--amb:#f2c14e;--wat:#ff7b72;--ok:#5fd08f;--bad:#ff8a7a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+header,main{max-width:900px;margin:0 auto;padding:0 18px}
+header{padding-top:36px}
+h1,h2,h3{font-family:Georgia,"Iowan Old Style",serif;line-height:1.2;margin:0 0 .5em}
+h1{font-size:2rem}h2{font-size:1.4rem;margin-top:1.8em}h3{font-size:1.1rem}
+p{margin:.4em 0 1em;max-width:68ch}
+.lead{color:var(--mut)}
+nav{display:flex;gap:6px;flex-wrap:wrap;margin:22px 0 0;border-bottom:2px solid var(--line)}
+nav button{background:none;border:0;padding:10px 14px;font:inherit;color:var(--mut);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px}
+nav button[aria-selected=true]{color:var(--ink);border-color:var(--acc);font-weight:600}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--amb);outline-offset:2px}
+section.tab{display:none;padding-top:8px}section.tab.on{display:block}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin:12px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--acc);background:var(--acc);color:#fff;cursor:pointer}
+.btn.alt{background:transparent;color:var(--acc)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+@media(prefers-color-scheme:dark){.btn{color:#0d1b1a}.btn.alt{color:var(--acc)}}
+.chain{display:flex;flex-wrap:wrap;align-items:center;gap:0;min-height:64px;padding:8px 0}
+.mono{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;width:54px;height:54px;border-radius:50%;color:#fff;font-size:.72rem;font-weight:600;text-align:center;line-height:1.1}
+.bond{display:inline-flex;flex-direction:column;align-items:center;font-size:.62rem;color:var(--mut);min-width:26px}
+.bond i{display:block;height:3px;width:22px;background:var(--ink);border-radius:2px}
+.stat{display:flex;gap:18px;flex-wrap:wrap;font-size:.95rem}
+.stat b{font-size:1.3rem;font-family:Georgia,serif}
+.water{color:var(--wat)}
+label{display:block;font-weight:600;margin-top:10px}
+input[type=range]{width:100%;accent-color:var(--acc)}
+.bar{height:16px;background:var(--line);border-radius:8px;overflow:hidden}
+.bar>div{height:100%;background:var(--ok);width:100%;transition:width .2s}
+.lv{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:10px}
+.lv div{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:.9rem}
+.lv .keep{border-left:5px solid var(--ok)}.lv .lost{border-left:5px solid var(--bad)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.grid .panel{margin:0}
+.grid .panel h3{margin-bottom:.2em}
+.tag{display:inline-block;font-size:.8rem;color:var(--mut)}
+details summary{cursor:pointer;font-weight:600}
+svg{width:100%;height:auto;display:block}
+footer{max-width:900px;margin:40px auto;padding:0 18px;color:var(--mut);font-size:.85rem}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Simulador de Biomoléculas</h1>
+  <p class="lead">Camada 2 em movimento: construa polímeros biológicos com reações de condensação e veja como calor e pH desfazem a estrutura de uma proteína.</p>
+  <nav role="tablist" aria-label="Simuladores">
+    <button role="tab" aria-selected="true" data-t="t1">Condensação e hidrólise</button>
+    <button role="tab" aria-selected="false" data-t="t2">Desnaturação</button>
+    <button role="tab" aria-selected="false" data-t="t3">Os 4 grupos</button>
+  </nav>
+</header>
+
+<main>
+<!-- SIMULADOR 1 -->
+<section class="tab on" id="t1">
+  <h2>Monte um polímero</h2>
+  <p>Escolha a biomolécula e adicione monômeros. Cada nova ligação é uma reação de condensação e libera uma molécula de água. A hidrólise usa água para quebrar a ligação.</p>
+  <div class="panel">
+    <label for="tipo">Biomolécula</label>
+    <select id="tipo" class="btn alt" style="padding:8px"></select>
+    <div class="chain" id="chain" aria-live="polite"></div>
+    <div class="row">
+      <button class="btn" id="add"></button>
+      <button class="btn alt" id="hid">Hidrólise (quebrar a última ligação)</button>
+      <button class="btn alt" id="rst">Limpar</button>
+    </div>
+    <div class="stat" style="margin-top:14px">
+      <span>Monômeros: <b id="n">0</b></span>
+      <span>Ligações: <b id="lig">0</b></span>
+      <span class="water">H₂O liberadas: <b id="h2o">0</b></span>
+    </div>
+    <p id="eq" class="lead" style="margin-top:12px"></p>
+  </div>
+</section>
+
+<!-- SIMULADOR 2 -->
+<section class="tab" id="t2">
+  <h2>Desnaturação de uma proteína</h2>
+  <p>Altere a temperatura e o pH. A sequência de aminoácidos continua igual, mas a forma 3D e a função mudam.</p>
+  <div class="panel">
+    <svg viewBox="0 0 400 260" id="prot" role="img" aria-label="Cadeia de aminoácidos dobrada ou desdobrada"></svg>
+    <div class="row">
+      <button class="btn alt" data-p="37,7">Corpo normal</button>
+      <button class="btn alt" data-p="42,7">Febre alta</button>
+      <button class="btn alt" data-p="90,7">Fritar um ovo</button>
+      <button class="btn alt" data-p="37,2">Meio muito ácido</button>
+    </div>
+    <label for="T">Temperatura: <span id="Tv"></span> °C</label>
+    <input type="range" id="T" min="0" max="100" value="37">
+    <label for="pH">pH: <span id="pHv"></span></label>
+    <input type="range" id="pH" min="0" max="14" step="0.1" value="7">
+    <label style="margin-top:14px">Atividade da proteína: <span id="atv"></span></label>
+    <div class="bar" aria-hidden="true"><div id="atb"></div></div>
+    <div class="lv" id="lv"></div>
+    <p id="msg" style="margin-top:14px"></p>
+  </div>
+</section>
+
+<!-- GRUPOS -->
+<section class="tab" id="t3">
+  <h2>Resumo da Camada 2</h2>
+  <div class="grid">
+    <div class="panel"><h3>Carboidratos</h3><p>Polímeros de monossacarídeos (ex.: glicose) unidos por ligações glicosídicas. Armazenam energia química.</p></div>
+    <div class="panel"><h3>Lipídios</h3><p>Predominantemente apolares, com cadeias hidrocarbônicas longas. Em geral não são polímeros. Fosfolipídios são anfipáticos e formam a bicamada da membrana.</p></div>
+    <div class="panel"><h3>Proteínas</h3><p>Polímeros de aminoácidos unidos por ligações peptídicas. A função depende da estrutura 3D. Muitas são enzimas e reduzem a energia de ativação.</p></div>
+    <div class="panel"><h3>Ácidos nucleicos</h3><p>DNA e RNA: polímeros de nucleotídeos unidos por ligações fosfodiéster. A sequência das bases codifica a síntese proteica.</p></div>
+  </div>
+  <h2>Pergunta de transição</h2>
+  <div class="panel">
+    <p>Explique por que uma proteína desnaturada perde a função mesmo mantendo a mesma sequência de aminoácidos. Cite dois tipos de interação intermolecular e diga qual nível estrutural foi preservado e qual foi perdido.</p>
+    <details><summary>Ver gabarito do professor</summary>
+      <p>A desnaturação rompe ligações de hidrogênio, interações hidrofóbicas e pontes dissulfeto, que mantêm as estruturas secundária e terciária. A estrutura primária (ligações peptídicas) é preservada. Sem a forma 3D, o sítio ativo se desfaz e a proteína não reconhece o substrato: forma determina função.</p>
+    </details>
+  </div>
+</section>
+</main>
+<footer>Material didático para o 3º ano do Ensino Médio. Arquivo único, sem dependências externas.</footer>
+
+<script>
+// Abas
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));
+  document.querySelectorAll('section.tab').forEach(s=>s.classList.toggle('on',s.id===b.dataset.t));
+});
+
+// ---------- Simulador 1 ----------
+const TIPOS={
+  carb:{nome:'Carboidrato (polissacarídeo)',mon:['Glicose'],cor:['#c97b1a'],lig:'glicosídica',add:'Adicionar glicose',ex:'n glicose → polissacarídeo + (n−1) H₂O'},
+  prot:{nome:'Proteína (polipeptídeo)',mon:['Gly','Ala','Ser','Cys','Leu','Lys'],cor:['#0b7a75','#2e6fbf','#7a4fb5','#b8860b','#3f8f4f','#b0467a'],lig:'peptídica',add:'Adicionar aminoácido',ex:'n aminoácidos → polipeptídeo + (n−1) H₂O'},
+  nuc:{nome:'Ácido nucleico (DNA/RNA)',mon:['A','T','C','G'],cor:['#2e6fbf','#c0392b','#3f8f4f','#b8860b'],lig:'fosfodiéster',add:'Adicionar nucleotídeo',ex:'n nucleotídeos → ácido nucleico + (n−1) H₂O'}
+};
+let tipo='prot',seq=[],h2o=0;
+const $=id=>document.getElementById(id);
+$('tipo').innerHTML=Object.entries(TIPOS).map(([k,v])=>`<option value="${k}">${v.nome}</option>`).join('');
+$('tipo').value=tipo;
+function draw1(){
+  const t=TIPOS[tipo];
+  $('add').textContent=t.add;
+  $('chain').innerHTML=seq.length?seq.map((m,i)=>
+    (i?`<span class="bond"><i></i>${t.lig}</span>`:'')+
+    `<span class="mono" style="background:${t.cor[m]}">${t.mon[m]}</span>`).join(''):'<span class="lead">Nenhum monômero ainda. Clique em adicionar.</span>';
+  $('n').textContent=seq.length;
+  $('lig').textContent=Math.max(0,seq.length-1);
+  $('h2o').textContent=h2o;
+  $('hid').disabled=seq.length<2;
+  $('eq').textContent=t.ex+'. Saldo: '+h2o+' H₂O liberadas.';
+}
+$('tipo').onchange=e=>{tipo=e.target.value;seq=[];h2o=0;draw1()};
+$('add').onclick=()=>{const t=TIPOS[tipo];seq.push(Math.floor(Math.random()*t.mon.length));if(seq.length>1)h2o++;draw1()};
+$('hid').onclick=()=>{seq.pop();h2o--;draw1()};
+$('rst').onclick=()=>{seq=[];h2o=0;draw1()};
+draw1();
+
+// ---------- Simulador 2 ----------
+const N=22,COLS=['#0b7a75','#2e6fbf','#7a4fb5','#b8860b','#3f8f4f','#b0467a'];
+const fold=[],unf=[];
+for(let i=0;i<N;i++){
+  const a=i*0.95,r=22+i*3.2;
+  fold.push([200+r*Math.cos(a)*1.15,130+r*Math.sin(a)*0.9]);
+  unf.push([24+i*(352/(N-1)),130+(i%2?26:-26)*(0.6+0.4*Math.sin(i))]);
+}
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function draw2(){
+  const T=+$('T').value,pH=+$('pH').value;
+  $('Tv').textContent=T;$('pHv').textContent=pH.toFixed(1);
+  const dT=clamp((T-45)/20,0,1),dP=clamp((Math.abs(pH-7)-2)/3,0,1);
+  const d=1-(1-dT)*(1-dP);
+  const cold=0.35+0.65*clamp(T/37,0,1);
+  const act=(1-d)*cold;
+  const p=fold.map((f,i)=>[f[0]+(unf[i][0]-f[0])*d,f[1]+(unf[i][1]-f[1])*d]);
+  let s='';
+  // ligações de hidrogênio (secundária) e ponte dissulfeto (terciária)
+  for(let i=0;i+4<N;i+=2){s+=`<line x1="${p[i][0]}" y1="${p[i][1]}" x2="${p[i+4][0]}" y2="${p[i+4][1]}" stroke="var(--mut)" stroke-dasharray="3 3" opacity="${(1-d)*.8}"/>`}
+  s+=`<line x1="${p[3][0]}" y1="${p[3][1]}" x2="${p[N-4][0]}" y2="${p[N-4][1]}" stroke="var(--amb)" stroke-width="3" opacity="${1-d}"/>`;
+  s+=`<polyline fill="none" stroke="var(--ink)" stroke-width="3" points="${p.map(q=>q.join(',')).join(' ')}"/>`;
+  p.forEach((q,i)=>s+=`<circle cx="${q[0]}" cy="${q[1]}" r="8" fill="${COLS[i%6]}"/>`);
+  // sítio ativo e substrato
+  const c=p[10];
+  s+=`<circle cx="${c[0]}" cy="${c[1]}" r="17" fill="none" stroke="var(--amb)" stroke-width="3" stroke-dasharray="6 4" opacity="${1-d}"/>`;
+  s+=`<rect x="${c[0]-6}" y="${c[1]-6}" width="12" height="12" fill="var(--wat)" transform="rotate(45 ${c[0]} ${c[1]})" opacity="${.35+.65*(1-d)}"/>`;
+  s+=`<text x="12" y="248" font-size="12" fill="var(--mut)">Tracejado: ligações de H · Linha amarela: ponte dissulfeto · Losango: substrato</text>`;
+  $('prot').innerHTML=s;
+  $('atv').textContent=Math.round(act*100)+'%';
+  $('atb').style.width=(act*100)+'%';
+  $('atb').style.background=act>.6?'var(--ok)':act>.2?'var(--amb)':'var(--bad)';
+  const den=d>.5;
+  $('lv').innerHTML=
+    `<div class="keep"><b>Primária preservada</b><br>Sequência de aminoácidos e ligações peptídicas intactas.</div>`+
+    `<div class="${d<.3?'keep':'lost'}"><b>Secundária ${d<.3?'preservada':'perdida'}</b><br>Ligações de hidrogênio ${d<.3?'mantidas':'rompidas'}.</div>`+
+    `<div class="${d<.3?'keep':'lost'}"><b>Terciária ${d<.3?'preservada':'perdida'}</b><br>Interações hidrofóbicas e pontes dissulfeto ${d<.3?'mantidas':'rompidas'}.</div>`;
+  $('msg').textContent=den?'A proteína está desnaturada: a forma 3D se desfez, o sítio ativo não reconhece mais o substrato e a atividade caiu, embora a sequência seja a mesma.'
+    :d>0?'Desnaturação parcial: parte das interações já foi rompida.'
+    :T<20?'Em temperatura baixa a proteína mantém a forma, mas as moléculas se movem devagar e a reação é lenta.':'Estrutura nativa: forma 3D intacta e sítio ativo funcional.';
+}
+$('T').oninput=$('pH').oninput=draw2;
+document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{const[v,h]=b.dataset.p.split(',');$('T').value=v;$('pH').value=h;draw2()});
+draw2();
+</script>
+</body>
+</html>
